@@ -23,6 +23,11 @@ dev = [
 [project.scripts]
 agentreplay = "agentreplay.cli:app"
 
+[project.urls]
+Homepage = "https://github.com/aasim-syed/Repro"
+Source = "https://github.com/aasim-syed/Repro"
+Issues = "https://github.com/aasim-syed/Repro/issues"
+
 [tool.setuptools]
 package-dir = {"" = "src"}
 
