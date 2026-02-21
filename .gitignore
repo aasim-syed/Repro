@@ -1,0 +1,66 @@
+# ------------------------------
+# Python
+# ------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# ------------------------------
+# Packaging / build
+# ------------------------------
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ------------------------------
+# Test / coverage artifacts
+# ------------------------------
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# ------------------------------
+# IDE / Editor
+# ------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ------------------------------
+# OS-specific
+# ------------------------------
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# ------------------------------
+# AgentReplay specific
+# ------------------------------
+# Local SQLite databases (generated runs)
+agentreplay.db
+*.db
+
+# Export artifacts (future .areplay files)
+*.areplay
+
+# Logs (if you add logging later)
+*.log
+logs/
+
+# ------------------------------
+# Environment / secrets
+# ------------------------------
+.env
+.env.*
