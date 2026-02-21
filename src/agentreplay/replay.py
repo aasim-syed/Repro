@@ -1,35 +1,41 @@
 from __future__ import annotations
 
-from typing import Dict, Any, Optional, List
+import json
+from typing import Dict, Any, List
 
 from .store import Store
 from .models import ReplayReport, Step
 
 
-class ToolMocker:
-    """
-    During replay, tool outputs come from the recorded trace.
-    This is the key determinism primitive for v0.1.
-    """
+def _stable(obj: Any) -> str:
+    return json.dumps(obj, sort_keys=True, ensure_ascii=False)
 
-    def __init__(self, tool_steps: List[Step]):
-        self._by_index = {s.idx: s for s in tool_steps}
+
+class ToolMocker:
+    def __init__(self, tool_steps: List[Step], strict: bool = False):
+        self.strict = strict
+        self._tool_steps = tool_steps
         self._cursor = 0
-        self._tool_indices = [s.idx for s in tool_steps]
 
     def next_output(self, tool_name: str, tool_input: Dict[str, Any]) -> Dict[str, Any]:
-        if self._cursor >= len(self._tool_indices):
+        if self._cursor >= len(self._tool_steps):
             raise RuntimeError("Replay tool calls exceeded recorded tool calls")
 
-        idx = self._tool_indices[self._cursor]
-        step = self._by_index[idx]
+        step = self._tool_steps[self._cursor]
         self._cursor += 1
 
-        # Optional strict checks:
         if step.name != tool_name:
-            raise RuntimeError(f"Tool name mismatch at replay cursor {self._cursor-1}: {step.name} != {tool_name}")
+            raise RuntimeError(
+                f"Tool name mismatch at tool-step #{self._cursor-1}: recorded={step.name} current={tool_name}"
+            )
 
-        # Could also compare inputs; for v0.1 keep lenient (diff layer will catch changes).
+        if self.strict:
+            if _stable(step.input) != _stable(tool_input):
+                raise RuntimeError(
+                    f"Tool input mismatch at tool-step #{self._cursor-1} for {tool_name}\n"
+                    f"recorded={_stable(step.input)}\ncurrent ={_stable(tool_input)}"
+                )
+
         return step.output
 
 
@@ -37,18 +43,17 @@ class Replayer:
     def __init__(self, store: Store):
         self.store = store
 
-    def build_tool_mocker(self, run_id: str) -> ToolMocker:
+    def build_tool_mocker(self, run_id: str, strict: bool = False) -> ToolMocker:
         steps = self.store.list_steps(run_id)
         tool_steps = [s for s in steps if s.kind == "tool"]
-        return ToolMocker(tool_steps)
+        return ToolMocker(tool_steps, strict=strict)
 
-    def replay(self, run_id: str) -> ReplayReport:
-        # v0.1: replay is "validate trace consistency + tool mocking availability"
+    def replay(self, run_id: str, strict: bool = False) -> ReplayReport:
         steps = self.store.list_steps(run_id)
         notes: List[str] = []
         ok = True
 
-        # Basic integrity checks
+        # integrity check
         last_idx = -1
         for s in steps:
             if s.idx != last_idx + 1:
@@ -56,8 +61,7 @@ class Replayer:
                 notes.append(f"Non-contiguous step idx at {s.idx} (prev={last_idx})")
             last_idx = s.idx
 
-        # Ensure tool steps are mockable
-        _ = self.build_tool_mocker(run_id)
-        notes.append("Tool mocker prepared from recorded tool steps.")
+        _ = self.build_tool_mocker(run_id, strict=strict)
+        notes.append(f"Tool mocker prepared (strict={strict}).")
 
         return ReplayReport(run_id=run_id, ok=ok, steps_replayed=len(steps), notes=notes)
